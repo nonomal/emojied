@@ -1,26 +1,16 @@
 {
-  # Min nix version: 2.7.0
   description = "A URL shortener, except emojis";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs";
-    nixos-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
-
-    naersk = {
-      url = "github:nix-community/naersk";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    pre-commit-hooks = {
-      url = "github:cachix/pre-commit-hooks.nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    devenv.url = "github:cachix/devenv";
+    naersk.url = "github:nix-community/naersk";
+    pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
   };
 
-  outputs = { self, nixpkgs, nixos-unstable, naersk, pre-commit-hooks }: (
+  outputs = { self, nixpkgs, devenv, naersk, pre-commit-hooks } @ inputs: (
     let system = "x86_64-linux";
         pkgs = nixpkgs.legacyPackages.${system};
-        unstablepkgs = nixos-unstable.legacyPackages.${system};
 
         naersk-lib = naersk.lib.${system}.override {
           cargo = pkgs.cargo;
@@ -29,12 +19,10 @@
 
         shell = import ./nix/shell.nix {
           inherit pkgs;
-          inherit unstablepkgs;
         };
 
         emojied = import ./nix/modules/packages/emojied.nix {
           inherit pkgs;
-          inherit unstablepkgs;
           inherit naersk-lib;
         };
 
@@ -92,8 +80,15 @@
         program = "${self.packages.${system}.emojied}/bin/emojied";
       };
 
-      nixosModule = import ./nix/modules/services/emojied.nix;
-      devShells.${system}.default = shell;
+      nixosModules.default = import ./nix/modules/services/emojied.nix;
+
+      devShells.${system}.default = devenv.lib.mkShell {
+        inherit inputs pkgs;
+
+        modules = [
+          ./nix/shell.nix
+        ];
+      };
     }
   );
 }
